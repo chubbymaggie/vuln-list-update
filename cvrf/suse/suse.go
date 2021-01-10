@@ -6,10 +6,10 @@ import (
 	"encoding/xml"
 	"fmt"
 	"log"
-	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/aquasecurity/vuln-list-update/utils"
 	"github.com/cheggaaa/pb"
@@ -79,9 +79,15 @@ func (c Config) update(os string, urls []string) error {
 	for _, cvrfXml := range cvrfXmls {
 		var cv Cvrf
 		if len(cvrfXml) == 0 {
-			log.Printf("empty CVRF xml: %s", cv.Tracking.ID)
+			log.Println("empty CVRF xml")
 			continue
 		}
+
+		if !utf8.Valid(cvrfXml) {
+			log.Println("invalid UTF-8")
+			cvrfXml = []byte(strings.ToValidUTF8(string(cvrfXml), ""))
+		}
+
 		err = xml.Unmarshal(cvrfXml, &cv)
 		if err != nil {
 			return xerrors.Errorf("failed to decode SUSE XML: %w", err)
@@ -117,14 +123,8 @@ func (c Config) saveCvrfPerYear(dirName string, cvrfID string, data interface{})
 	}
 
 	yearDir := filepath.Join(c.VulnListDir, dirName, year)
-	if err := c.AppFs.MkdirAll(yearDir, os.ModePerm); err != nil {
-		return xerrors.Errorf("failed to create directory: %w", err)
-	}
-
-	filePath := filepath.Join(yearDir, fmt.Sprintf("%s.json", strings.Replace(cvrfID, ":", "-", 1)))
-
-	fs := utils.NewFs(c.AppFs)
-	if err := fs.WriteJSON(filePath, data); err != nil {
+	fileName := fmt.Sprintf("%s.json", strings.Replace(cvrfID, ":", "-", 1))
+	if err := utils.WriteJSON(c.AppFs, yearDir, fileName, data); err != nil {
 		return xerrors.Errorf("failed to write file: %w", err)
 	}
 	return nil

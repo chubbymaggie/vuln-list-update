@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -15,7 +14,7 @@ import (
 )
 
 const (
-	advisoryURL    = "https://vmware.bintray.com/photon_cve_metadata/"
+	advisoryURL    = "https://packages.vmware.com/photon/photon_cve_metadata/"
 	versionsFile   = "photon_versions.json"
 	advisoryFormat = "cve_data_photon%s.json"
 
@@ -95,14 +94,8 @@ func (c Config) saveCVEPerPkg(dirName, pkgName, cveID string, data interface{}) 
 	}
 
 	pkgDir := filepath.Join(c.VulnListDir, dirName, pkgName)
-	if err := c.AppFs.MkdirAll(pkgDir, os.ModePerm); err != nil {
-		return xerrors.Errorf("failed to create dir: %w", err)
-	}
-
-	filePath := filepath.Join(pkgDir, fmt.Sprintf("%s.json", cveID))
-
-	fs := utils.NewFs(c.AppFs)
-	if err := fs.WriteJSON(filePath, data); err != nil {
+	fileName := fmt.Sprintf("%s.json", cveID)
+	if err := utils.WriteJSON(c.AppFs, pkgDir, fileName, data); err != nil {
 		return xerrors.Errorf("failed to write file: %w", err)
 	}
 	return nil
